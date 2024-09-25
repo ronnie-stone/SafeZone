@@ -1,57 +1,76 @@
+import pyclipper
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial import Voronoi, voronoi_plot_2d
-from shapely.ops import unary_union
-from shapely import geometry, buffer
+from shapely import geometry
 from shapely.geometry import MultiPolygon
+from matplotlib.patches import Polygon as mpl_polygon
 
 
-def tessellate_with_buffer(robot_positions, printing_part, BufferSize):
+def tessellate_with_buffer(RobotPositions, Part, BufferSize):
 
-    minx = min(robot_positions[:,0])
-    maxx = max(robot_positions[:,0])
-    miny = min(robot_positions[:,1])
-    maxy = max(robot_positions[:,1])
+    minx = min(RobotPositions[:,0])
+    maxx = max(RobotPositions[:,0])
+    
+    miny = min(RobotPositions[:,1])
+    maxy = max(RobotPositions[:,1])
     
     BoundaryPoints = np.array([[minx - 100, miny - 100], [maxx + 100, miny - 100], [maxx + 100, maxy + 100], [minx - 100, maxy + 100]])
     
-    Points = np.vstack((robot_positions, BoundaryPoints))
+    Points = np.vstack((RobotPositions, BoundaryPoints))
     
     vor = Voronoi(Points)
     verticies = vor.vertices
     regions = vor.regions
     RegionIndex = vor.point_region
     
-    PrintingPolygon = geometry.Polygon(printing_part)
+    PrintingPolygon = geometry.Polygon(Part)
     
-    a_regions = []
-    enlarged_a_regions = []
-    b_regions = []
-    a_regions_areas = []
-    b_regions_areas = []
+    Cells = []
+    MainPolygons = []
+    MainAreas = []
+    BoundaryPolygons = []
+    BoundaryAreas = []
 
-    # Get A regions from tessellation:
+    for i in range(len(RobotPositions[:,1])):
 
-    for i in range(len(robot_positions[:,1])):
-        Cell = verticies[regions[RegionIndex[i]], :]
-        unbounded_a_region = geometry.Polygon(Cell)
-        bounded_a_region = unbounded_a_region.intersection(PrintingPolygon)
-        a_regions.append(bounded_a_region)
-        a_regions_areas.append(bounded_a_region.area)
-        enlarged_a_region = buffer(bounded_a_region, BufferSize, quad_segs=8)
-        enlarged_a_regions.append(enlarged_a_region)
+        Cell = verticies[regions[RegionIndex[i]],:]
+        Cells.append(Cell)
+        Polygon = geometry.Polygon(Cell)
+        pco = pyclipper.PyclipperOffset()
+        pco.AddPath(Cell*10000, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
+        solution = pco.Execute(-BufferSize*10000)
+    
+    
+        OffsetPolygon = []
+        if solution != []:
+            solution = solution[0]
+            
+            for j in solution:
+                OffsetPolygon.append([j[0]/10000, j[1]/10000])
+            
+            OffsetPolygon=np.array(OffsetPolygon)
+    
+            OffsetPolygon = geometry.Polygon(OffsetPolygon)
+            BoundaryPolygon = Polygon.difference(OffsetPolygon)    
+            BoundaryPolygon = BoundaryPolygon.intersection(PrintingPolygon)
+            BoundaryPolygons.append(BoundaryPolygon)
+            BoundaryAreas.append(BoundaryPolygon.area)
+            
+            MainPolygon = OffsetPolygon.intersection(PrintingPolygon)
+            MainPolygons.append(MainPolygon)
+            MainAreas.append(MainPolygon.area)
 
-    # Get buffer regions by intersecting the bounded A regions with the union of the remaining enlarged regions
-
-    for j in range(len(robot_positions[:,1])):
-        other_enlarged_a_regions = [enlarged_a_regions[k] for k in range(len(enlarged_a_regions)) if k != j]
-        union_of_other_enlarged_a_regions = unary_union(other_enlarged_a_regions)
-        b_region = a_regions[j].intersection(union_of_other_enlarged_a_regions)
-        b_regions.append(b_region)
-        b_regions_areas.append(b_region.area)
+        else:
+            #There is no main area
+            BoundaryPolygon = Polygon.intersection(PrintingPolygon)
+            BoundaryPolygons.append(BoundaryPolygon)
+            BoundaryAreas.append(BoundaryPolygon.area)
+            
+            MainPolygons.append([])
+            MainAreas.append(0)
         
-    # return MainPolygons, BoundaryPolygons, MainAreas, BoundaryAreas
-    return a_regions, b_regions, a_regions_areas, b_regions_areas
+    return MainPolygons, BoundaryPolygons, MainAreas, BoundaryAreas
 
 
 if __name__ == "__main__":
@@ -66,9 +85,6 @@ if __name__ == "__main__":
     BufferSize = 0.1
 
     polygons_A_star, polygons_B, polygons_A_star_areas, polygons_B_areas = tessellate_with_buffer(RobotPositions, Part, BufferSize)
-
-    print(polygons_A_star_areas)
-    print(polygons_B_areas)
 
     # Plotting:
     fig, ax = plt.subplots()

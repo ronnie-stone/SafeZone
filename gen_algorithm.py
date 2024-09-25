@@ -22,7 +22,7 @@ from matplotlib import cm
 # input_polygon = [(0,0), (3,0), (3, 0.5), (2.5, 0.5), (2.5, 2.5), (3, 2.5), (3,3), (0,3), (0, 2.5), (0.5, 2.5), (0.5,0.5), (0,0.5), (0,0)] # I-BEAM
 # input_polygon = [(0,0), (3,0), (3, 0.5), (0.5, 2.5), (3, 2.5), (3, 3), (0,3), (0,2.5), (2.5, 0.5), (0, 0.5), (0,0)] # Z-BEAM
 input_polygon = np.load('bunny_cross_section_scaled.npy')
-minimum_distance = 0.2
+minimum_distance = 0.1
 
 def generate_gene_space(N, low=-1, high=4):
     # Each point has two coordinates (x, y), so you need 2 * N genes
@@ -59,7 +59,6 @@ def plot_custom_solution(solution, polygons_A_star, polygons_B, ax):
     colors_A_star = [cmap(i / num_polygons_A_star) for i in range(num_polygons_A_star)]
     colors_B = [cmap(i / num_polygons_B) for i in range(num_polygons_B)]
 
-
     #plot_solution(solution, ax, num_generations)
 
     for i, MainPolygon in enumerate(polygons_A_star):
@@ -95,12 +94,15 @@ def plot_custom_solution(solution, polygons_A_star, polygons_B, ax):
     points = np.array(points)
 
     vor = Voronoi(points)
-    voronoi_plot_2d(vor, ax=ax, show_vertices=False, line_colors='black')
+    voronoi_plot_2d(vor, ax=ax, show_points=False, show_vertices=False, line_colors='black')
+    ax.scatter(np.array(voronoi_points)[:, 0],  np.array(voronoi_points)[:, 1], s=20, color='red', edgecolor='black')
+    #for point in points:
+    #    circle = plt.Circle(point, 0.5, color='gray', alpha=0.1)
+    #    ax.add_patch(circle)
     plt.xlim([-1,4])
     plt.ylim([-1,4])
 
 
-    
 def points_in_polygon(polygon_points, points_to_check):
     """
     Return True if any point in `points_to_check` is inside the polygon defined by `polygon_points`.
@@ -225,7 +227,7 @@ def plot_solution(solution, ax, generation):
     ax.plot(x,y, color='black', linewidth=2)
     #plt.pause(0.25)  # Pause for a moment to show the plot
 
-# # Callback function to plot the solution after each generation
+# Callback function to plot the solution after each generation
 def on_generation(ga_instance, ax):
     print(ga_instance.generations_completed)
     
