@@ -16,12 +16,12 @@ from matplotlib import cm
 
 # General Parameters
 
-# input_polygon = [(0,0), (3,0), (3,3), (0,3), (0,0)] # Square
+#input_polygon = [(0,0), (3,0), (3,3), (0,3), (0,0)] # Square
 # input_polygon = [(0,0), (6,0), (6,3), (0,3), (0,0)] # Rectangle
 # input_polygon = [(0,0), (3,0), (1.5,3), (0,0)] # Triangle
-# input_polygon = [(0,0), (3,0), (3, 0.5), (2.5, 0.5), (2.5, 2.5), (3, 2.5), (3,3), (0,3), (0, 2.5), (0.5, 2.5), (0.5,0.5), (0,0.5), (0,0)] # I-BEAM
+input_polygon = [(0,0), (3,0), (3, 0.5), (2.5, 0.5), (2.5, 2.5), (3, 2.5), (3,3), (0,3), (0, 2.5), (0.5, 2.5), (0.5,0.5), (0,0.5), (0,0)] # I-BEAM
 # input_polygon = [(0,0), (3,0), (3, 0.5), (0.5, 2.5), (3, 2.5), (3, 3), (0,3), (0,2.5), (2.5, 0.5), (0, 0.5), (0,0)] # Z-BEAM
-input_polygon = np.load('bunny_cross_section_scaled.npy')
+# input_polygon = np.load('bunny_cross_section_scaled.npy')
 minimum_distance = 0.1
 
 def generate_gene_space(N, low=-1, high=4):
@@ -220,7 +220,7 @@ def plot_solution(solution, ax, generation):
     # input_polygon = [(0,0), (3,0), (3,3), (0,3), (0,0)] # Square
     # input_polygon = [(0,0), (6,0), (6,3), (0,3), (0,0)] # Rectangle
     # input_polygon = [(0,0), (3,0), (3, 0.5), (0.5, 2.5), (3, 2.5), (3, 3), (0,3), (0,2.5), (2.5, 0.5), (0, 0.5), (0,0)] # Z-BEAM
-    input_polygon = np.load('bunny_cross_section_scaled.npy')
+    # input_polygon = np.load('bunny_cross_section_scaled.npy')
     input_poly = Polygon(input_polygon)
     x, y = input_poly.exterior.xy
     #plt.plot(x, y, color='black', linewidth=2)
@@ -237,8 +237,8 @@ def on_generation(ga_instance, ax):
 if __name__ == "__main__":
 
     # Define the PyGAD parameters
-    N = 4
-    num_generations = 10  # Number of generations
+    N = 10
+    num_generations = 50  # Number of generations
     num_parents_mating = 20  # Number of solutions to mate
     sol_per_pop = 100  # Population size
     num_genes = N * 2  # Each point has 2 coordinates (x, y)

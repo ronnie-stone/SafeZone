@@ -4,20 +4,51 @@ import matplotlib.pyplot as plt
 from scipy.spatial import Voronoi, ConvexHull, voronoi_plot_2d
 from shapely.geometry import Polygon, MultiPolygon, Point
 import time 
-from get_A_regions import get_A_regions
 from matplotlib import cm
+
+from expand_adjacency_matrix import expand_adjacency_matrix
 from tessellate_with_buffer import tessellate_with_buffer
+from adjacency_matrix_to_connected_tasks import adjacency_matrix_to_connected_tasks
+from adjacency_matrix_from_regions import adjacency_matrix_from_regions
+from get_A_regions import get_A_regions
+from integer_lp import task_scheduling_ilp
 
 
 # General Parameters
 
-input_polygon = [(0,0), (3,0), (3,3), (0,3), (0,0)] # Square
+#input_polygon = [(0,0), (3,0), (3,3), (0,3), (0,0)] # Square
 # input_polygon = [(0,0), (6,0), (6,3), (0,3), (0,0)] # Rectangle
 # input_polygon = [(0,0), (3,0), (1.5,3), (0,0)] # Triangle
-# input_polygon = [(0,0), (3,0), (3, 0.5), (2.5, 0.5), (2.5, 2.5), (3, 2.5), (3,3), (0,3), (0, 2.5), (0.5, 2.5), (0.5,0.5), (0,0.5), (0,0)] # I-BEAM
+input_polygon = [(0,0), (3,0), (3, 0.5), (2.5, 0.5), (2.5, 2.5), (3, 2.5), (3,3), (0,3), (0, 2.5), (0.5, 2.5), (0.5,0.5), (0,0.5), (0,0)] # I-BEAM
 # input_polygon = [(0,0), (3,0), (3, 0.5), (0.5, 2.5), (3, 2.5), (3, 3), (0,3), (0,2.5), (2.5, 0.5), (0, 0.5), (0,0)] # Z-BEAM
-
+# input_polygon = np.load('bunny_cross_section_scaled.npy')
 minimum_distance = 0.1
+
+def custom_metric(solution):
+
+    # Turn solution into points:
+
+    points = np.array([[solution[i], solution[i+1]] for i in range(0, len(solution), 2)])
+
+    # Tessellate to get all polygons and areas:
+
+    polygons_A_star, polygons_B, polygons_A_star_areas, polygons_B_areas = tessellate_with_buffer(points, input_polygon, minimum_distance)
+    polygons_A, polygons_A_areas, vor_A = get_A_regions(points, input_polygon)
+
+    # Get adjacency matrix, and expanded adjacency matrix. 
+
+    adjacency_matrix = adjacency_matrix_from_regions(polygons_A, minimum_distance)
+    expanded_adjacency_matrix = expand_adjacency_matrix(adjacency_matrix)
+
+    # Create parameters for mixed-integer solver:
+
+    task_list = np.arange(0, 2*len(points))
+    task_duration = np.array(polygons_A_star_areas + polygons_B_areas)
+    robots = np.tile(np.arange(1, len(points)+1), 2)
+    connected_tasks = adjacency_matrix_to_connected_tasks(expanded_adjacency_matrix)
+    makespan = task_scheduling_ilp(task_list, task_duration, robots, connected_tasks)
+
+    return -makespan
 
 def generate_gene_space(N, low=-1, high=4):
     # Each point has two coordinates (x, y), so you need 2 * N genes
@@ -403,8 +434,10 @@ def plot_solution(solution, generation):
     plt.pause(0.25)  # Pause for a moment to show the plot
 
 # Callback function to plot the solution after each generation
-def on_generation(ga_instance, ax):
+def on_generation(ga_instance, best_solutions_list, ax):
     print(ga_instance.generations_completed)
+    best_solution_generation = ga_instance.best_solution()[0]
+    best_solutions_list.append(best_solution_generation)
     
     #solution, solution_fitness, solution_idx = ga_instance.best_solution()
     #plot_solution(solution, ax, ga_instance.generations_completed)
@@ -413,13 +446,15 @@ def on_generation(ga_instance, ax):
 if __name__ == "__main__":
 
     # Define the PyGAD parameters
-    N = 4
-    num_generations = 10  # Number of generations
+    N = 10
+    num_generations = 50  # Number of generations
     num_parents_mating = 20  # Number of solutions to mate
     sol_per_pop = 100  # Population size
     num_genes = N * 2  # Each point has 2 coordinates (x, y)
     gene_space = generate_gene_space(N, low=-1, high=4)
     fig, ax = plt.subplots()
+
+    best_solutions = []
 
     # Create the PyGAD instance
     ga_instance = pygad.GA(num_generations=num_generations,
@@ -428,7 +463,7 @@ if __name__ == "__main__":
                         sol_per_pop=sol_per_pop,
                         num_genes=num_genes,
                         mutation_percent_genes=10,
-                        on_generation=lambda instance: on_generation(instance, ax),
+                        on_generation=lambda ga_instance: on_generation(ga_instance, best_solutions, ax),  # Callback with best_solutions
                         gene_space=gene_space,
                         suppress_warnings=True)
 
@@ -442,9 +477,15 @@ if __name__ == "__main__":
     # Get the best solution
     solution, solution_fitness, solution_idx = ga_instance.best_solution()
     print(f"Best solution: {solution}")
-    print(f"Fitness of the best solution: {solution_fitness}")
+    print(f"Best Fitness: {solution_fitness}")
 
     # Run routine to get optimal schedule:
+
+    #best_solutions = ga_instance.best_solutions  # List of best solutions from each generation
+
+    custom_metric_values = [custom_metric(sol) for sol in best_solutions]
+
+    print(f"Best Makespan: {custom_metric_values[-1]}")
 
     points = np.array([[solution[i], solution[i+1]] for i in range(0, len(solution), 2)])
 
@@ -461,3 +502,11 @@ if __name__ == "__main__":
 
     plot_custom_solution(solution, polygons_A_star, polygons_B, ax)
     ga_instance.plot_fitness()
+
+    #fig, ax = plt.subplots()
+    plt.plot(custom_metric_values, color="blue")
+    plt.title('Makespan per Generation')
+    plt.xlabel('Generation')
+    plt.ylabel('Makespan')
+    plt.axhline(y=best_makespan, color='red', linestyle='--', label='Theoretical Best Fitness')
+    plt.show()
