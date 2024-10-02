@@ -310,9 +310,9 @@ def on_generation(ga_instance, best_solutions_list, ax):
 if __name__ == "__main__":
 
     # Define the PyGAD parameters
-    N = 4
+    N = 6
     num_generations = 50  # Number of generations
-    num_parents_mating = 100  # Number of solutions to mate
+    num_parents_mating = 200  # Number of solutions to mate
     sol_per_pop = 1000  # Population size
     num_genes = N * 2  # Each point has 2 coordinates (x, y)
     gene_space = generate_gene_space(N, low=-1, high=4)
