@@ -3,7 +3,8 @@ import numpy as np
 from scipy.spatial import Voronoi, voronoi_plot_2d
 from shapely.ops import unary_union
 from shapely import geometry, buffer
-from shapely.geometry import MultiPolygon
+from shapely.geometry import MultiPolygon, Polygon
+from create_polygon import create_polygon
 
 
 def tessellate_with_buffer(robot_positions, printing_part, BufferSize):
@@ -22,12 +23,14 @@ def tessellate_with_buffer(robot_positions, printing_part, BufferSize):
     regions = vor.regions
     RegionIndex = vor.point_region
     
-    PrintingPolygon = geometry.Polygon(printing_part)
+    PrintingPolygon = create_polygon(printing_part)
     
     a_regions = []
+    a_star_regions = []
     enlarged_a_regions = []
     b_regions = []
     a_regions_areas = []
+    a_star_regions_areas = []
     b_regions_areas = []
 
     # Get A regions from tessellation:
@@ -49,9 +52,17 @@ def tessellate_with_buffer(robot_positions, printing_part, BufferSize):
         b_region = a_regions[j].intersection(union_of_other_enlarged_a_regions)
         b_regions.append(b_region)
         b_regions_areas.append(b_region.area)
+
+        if a_regions[j].within(b_region):
+            a_star_regions.append(Polygon())
+            a_star_regions_areas.append(0)
         
+        else:
+            a_star_regions.append(a_regions[j].difference(b_region))
+            a_star_regions_areas.append(a_star_regions[j].area)
+
     # return MainPolygons, BoundaryPolygons, MainAreas, BoundaryAreas
-    return a_regions, b_regions, a_regions_areas, b_regions_areas
+    return a_star_regions, b_regions, a_regions, a_star_regions_areas, b_regions_areas, a_regions_areas
 
 
 if __name__ == "__main__":
@@ -65,8 +76,14 @@ if __name__ == "__main__":
     #Part = np.array([(0,0), (3,0), (3, 0.5), (0.5, 2.5), (3, 2.5), (3, 3), (0,3), (0,2.5), (2.5, 0.5), (0, 0.5), (0,0)])
     BufferSize = 0.1
 
-    polygons_A_star, polygons_B, polygons_A_star_areas, polygons_B_areas = tessellate_with_buffer(RobotPositions, Part, BufferSize)
+    Part = [
+    [(0,0), (3,0), (3,3), (0,3), (0,0)],
+    [(1, 1), (1.5, 1), (1.5,1.5), (1, 1.5), (1, 1)]
+    ]
 
+    polygons_A_star, polygons_B, polygons_A, polygons_A_star_areas, polygons_B_areas, polygons_A_areas = tessellate_with_buffer(RobotPositions, Part, BufferSize)
+
+    print(polygons_A_star)
     print(polygons_A_star_areas)
     print(polygons_B_areas)
 

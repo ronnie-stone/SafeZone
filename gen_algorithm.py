@@ -1,7 +1,7 @@
 import pygad
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.spatial import Voronoi, ConvexHull, voronoi_plot_2d
+from scipy.spatial import Voronoi, voronoi_plot_2d
 from shapely.geometry import Point, Polygon, MultiPolygon
 import time 
 
@@ -11,24 +11,31 @@ from adjacency_matrix_to_connected_tasks import adjacency_matrix_to_connected_ta
 from adjacency_matrix_from_regions import adjacency_matrix_from_regions
 from get_A_regions import get_A_regions
 from integer_lp import task_scheduling_ilp
-
+from create_polygon import create_polygon
 from matplotlib import cm
 
 # General Parameters
 
-#input_polygon = [(0,0), (3,0), (3,3), (0,3), (0,0)] # Square
+input_polygon = [(0,0), (3,0), (3,3), (0,3), (0,0)] # Square
 # input_polygon = [(0,0), (6,0), (6,3), (0,3), (0,0)] # Rectangle
 # input_polygon = [(0,0), (3,0), (1.5,3), (0,0)] # Triangle
-input_polygon = [(0,0), (3,0), (3, 0.5), (2.5, 0.5), (2.5, 2.5), (3, 2.5), (3,3), (0,3), (0, 2.5), (0.5, 2.5), (0.5,0.5), (0,0.5), (0,0)] # I-BEAM
+# input_polygon = [(0,0), (3,0), (3, 0.5), (2.5, 0.5), (2.5, 2.5), (3, 2.5), (3,3), (0,3), (0, 2.5), (0.5, 2.5), (0.5,0.5), (0,0.5), (0,0)] # I-BEAM
 # input_polygon = [(0,0), (3,0), (3, 0.5), (0.5, 2.5), (3, 2.5), (3, 3), (0,3), (0,2.5), (2.5, 0.5), (0, 0.5), (0,0)] # Z-BEAM
 # input_polygon = np.load('bunny_cross_section_scaled.npy')
-minimum_distance = 0.1
+
+# input_polygon = [
+#     [(0,0), (3,0), (3,3), (0,3), (0,0)],
+#     [(0.5, 1), (1, 1), (1,2), (0.5, 2), (0.5, 1)],
+#     [(2, 1), (2.5, 1), (2.5, 2), (2, 2), (2, 1)]
+#     ]
+
+minimum_distance = 0.2
 
 def generate_gene_space(N, low=-1, high=4):
     # Each point has two coordinates (x, y), so you need 2 * N genes
     return [{'low': low, 'high': high} for _ in range(2 * N)]
 
-def plot_custom_fitness(ga_instance, theoretical_best_fitness):
+def plot_custom_fitness(ga_instance, best_solutions, theoretical_best_fitness):
     # Extract the fitness values from the genetic algorithm instance
     fitness_values = ga_instance.best_solutions_fitness
     
@@ -44,7 +51,73 @@ def plot_custom_fitness(ga_instance, theoretical_best_fitness):
     plt.ylabel("Fitness")
     plt.title("Fitness Over Generations")
     plt.legend()
-    
+
+    std_areas_A = []
+    abs_diff_areas_A = []
+    max_diff_areas_A = []
+    mean_squared_error_areas_A = []
+    sum_of_areas_A = []
+
+    std_areas_B = []
+    abs_diff_areas_B = []
+    max_diff_areas_B = []
+    mean_squared_error_areas_B = []
+    sum_of_areas_B = []
+
+    for i in range(len(best_solutions)):
+
+        solution = best_solutions[i]
+        points = np.array([[solution[i], solution[i+1]] for i in range(0, len(solution), 2)])
+
+        try:
+            polygons_A_star, polygons_B, polygons_A, polygons_A_star_areas, polygons_B_areas, polygons_A_areas = tessellate_with_buffer(points, input_polygon, minimum_distance)
+            array_A = np.array(polygons_A_star_areas)
+            array_B = np.array(polygons_B_areas)
+            std_areas_A.append(np.std(array_A))
+            abs_diff_areas_A.append(np.sum(np.abs(np.diff(array_A))))
+            mean_squared_error_areas_A.append(np.mean(np.diff(array_A) ** 2))
+            max_diff_areas_A.append(np.max(np.abs(np.diff(array_A))))
+            sum_of_areas_A.append(np.sum(array_A))
+
+            std_areas_B.append(np.std(array_B))
+            abs_diff_areas_B.append(np.sum(np.abs(np.diff(array_B))))
+            mean_squared_error_areas_B.append(np.mean(np.diff(array_B) ** 2))
+            max_diff_areas_B.append(np.max(np.abs(np.diff(array_B))))
+            sum_of_areas_B.append(np.sum(polygons_B_areas))
+
+        except:
+            print("Error in tessellation")
+
+    plt.figure()
+    plt.plot(np.arange(1, len(best_solutions)+1), std_areas_A, label="Standard Deviation")
+    plt.plot(np.arange(1, len(best_solutions)+1), abs_diff_areas_A, label="Absolute Difference")
+    plt.plot(np.arange(1, len(best_solutions)+1), mean_squared_error_areas_A, label="Mean Squared Error")
+    plt.plot(np.arange(1, len(best_solutions)+1), max_diff_areas_A, label="Maximum Difference")
+    plt.xlabel("Generation")
+    plt.title("Difference Metrics of A-Areas over Generations")
+    plt.legend()
+
+    plt.figure()
+    plt.plot(np.arange(1, len(best_solutions)+1), std_areas_B, label="Standard Deviation")
+    plt.plot(np.arange(1, len(best_solutions)+1), abs_diff_areas_B, label="Absolute Difference")
+    plt.plot(np.arange(1, len(best_solutions)+1), mean_squared_error_areas_B, label="Mean Squared Error")
+    plt.plot(np.arange(1, len(best_solutions)+1), max_diff_areas_B, label="Maximum Difference")
+    plt.xlabel("Generation")
+    plt.title("Difference Metrics of B-Areas over Generations")
+    plt.legend()
+
+    plt.figure()
+    plt.plot(np.arange(1, len(best_solutions)+1), sum_of_areas_A, label="Sum of A")
+    plt.xlabel("Generation")
+    plt.title("Sum of Areas Generations")
+    plt.legend()
+
+    plt.figure()
+    plt.plot(np.arange(1, len(best_solutions)+1), sum_of_areas_B, label="Sum of B")
+    plt.xlabel("Generation")
+    plt.title("Sum of Areas Generations")
+    plt.legend()
+
     # Show the plot
     plt.show()
 
@@ -67,12 +140,12 @@ def plot_custom_solution(solution, polygons_A_star, polygons_B, ax):
             for poly in MainPolygon.geoms:
                 x, y = poly.exterior.xy
                 # Plot the filled polygon with alpha for the fill
-                ax.fill(x, y, facecolor=color, alpha=0.1, edgecolor='none')
+                ax.fill(x, y, facecolor=color, alpha=0.1, edgecolor='none', label=str(i))
                 # Plot the outline of the same polygon with no alpha (fully opaque)
                 ax.plot(x, y, color='black', linewidth=1)
         else:
             x, y = MainPolygon.exterior.xy
-            ax.fill(x, y, facecolor=color, alpha=0.1, edgecolor='none')
+            ax.fill(x, y, facecolor=color, alpha=0.1, edgecolor='none', label=str(i))
             ax.plot(x, y, color='black', linewidth=1)
 
     # Plot polygons_B in the same way
@@ -101,6 +174,7 @@ def plot_custom_solution(solution, polygons_A_star, polygons_B, ax):
     #    ax.add_patch(circle)
     plt.xlim([-1,4])
     plt.ylim([-1,4])
+    plt.legend()
 
 
 def points_in_polygon(polygon_points, points_to_check):
@@ -113,7 +187,7 @@ def points_in_polygon(polygon_points, points_to_check):
     :return: True if any point is inside the polygon, False if all points are outside.
     """
     # Create a Polygon object from the given polygon points
-    polygon = Polygon(polygon_points)
+    polygon = create_polygon(polygon_points)
 
     # Check each point and return True if any point is inside the polygon
     for p in points_to_check:
@@ -132,20 +206,31 @@ def fitness_func(ga, solution, solution_idx):
 
     # Tessellate to get all polygons and areas:
 
+    #t1 = time.time()
+
     try:
-        polygons_A_star, polygons_B, polygons_A_star_areas, polygons_B_areas = tessellate_with_buffer(points, input_polygon, minimum_distance)
+        polygons_A_star, polygons_B, polygons_A, polygons_A_star_areas, polygons_B_areas, polygons_A_areas = tessellate_with_buffer(points, input_polygon, minimum_distance)
     except:
         print("Error in tessellation")
         return -100
+    
+    #t2 = time.time()
+    #print(str(t2-t1) + str(" Tessellation Time"))
 
-    polygons_A, polygons_A_areas, vor_A = get_A_regions(points, input_polygon)
+    #polygons_A, polygons_A_areas, vor_A = get_A_regions(points, input_polygon)
 
-    # Get adjacency matrix, and expanded adjacency matrix. 
+    # Get adjacency matrix, and expanded adjacency matrix.
+    #t1 = time.time() 
 
     adjacency_matrix = adjacency_matrix_from_regions(polygons_A, minimum_distance)
     expanded_adjacency_matrix = expand_adjacency_matrix(adjacency_matrix)
 
+    #t2 = time.time()
+    #print(str(t2-t1) + str(" Adjacency Time"))
+
     # Create parameters for mixed-integer solver:
+
+    #t1 = time.time() 
 
     task_list = np.arange(0, 2*len(points))
     task_duration = np.array(polygons_A_star_areas + polygons_B_areas)
@@ -157,6 +242,10 @@ def fitness_func(ga, solution, solution_idx):
     except:
         print("Error in graph scheduling")
         return -100
+    
+    #t2 = time.time()
+    #print(str(t2-t1) + str(" Mixed-Integer Time"))
+
 
     # Check if points are inside input polygon: 
 
@@ -171,65 +260,13 @@ def fitness_func(ga, solution, solution_idx):
 
 # Plot the points and center at every iteration
 def plot_solution(solution, ax, generation):
-
-    voronoi_points = [[solution[i], solution[i+1]] for i in range(0, len(solution), 2)]
-    helper_points = [[-100,-100], [-100,100], [100,-100], [100,100]]
-    points = voronoi_points + helper_points
-    points = np.array(points)
-
-    vor = Voronoi(points)
-
-    # Compute finite Voronoi cells
-    finite_cells = []
-    for i in range(len(voronoi_points)):
-        region_index = vor.point_region[i]
-        region = vor.regions[region_index]
-        if all(v >= 0 for v in region):
-            polygon = [vor.vertices[v] for v in region]
-            finite_cells.append(np.array(polygon))
-    
-    #plt.clf()  # Clear previous plot
-    ax.clear()
-
-    # Plotting the result for visualization
-    #fig, ax = plt.subplots()
-    voronoi_plot_2d(vor, ax=ax, show_vertices=False, line_colors='black')
-
-    colors = ['red', 'blue', 'green', 'yellow']
-
-    # Plot finite Voronoi cells with different colors
-    for idx, cell in enumerate(finite_cells):
-        color = colors[idx % 4]  # Cycle through red, blue, green, yellow
-        polygon = plt.Polygon(cell, color=color, alpha=0.1)
-        ax.add_patch(polygon)
-
-    min_x = min(point[0] for point in voronoi_points)
-    max_x = max(point[0] for point in voronoi_points)
-    min_y = min(point[1] for point in voronoi_points)
-    max_y = max(point[1] for point in voronoi_points)      
-
-    #plt.xlim(-1, 4)
-    #plt.ylim(-1, 4)
-    #plt.gca().set_aspect('equal', adjustable='box')
-
-    ax.set_xlim(-1,4)
-    ax.set_ylim(-1,4)
-    ax.set_title(f"Generation {generation}")
-    ax.set_aspect('equal', adjustable='box')
-
-    # input_polygon = [(0,0), (3,0), (3,3), (0,3), (0,0)] # Square
-    # input_polygon = [(0,0), (6,0), (6,3), (0,3), (0,0)] # Rectangle
-    # input_polygon = [(0,0), (3,0), (3, 0.5), (0.5, 2.5), (3, 2.5), (3, 3), (0,3), (0,2.5), (2.5, 0.5), (0, 0.5), (0,0)] # Z-BEAM
-    # input_polygon = np.load('bunny_cross_section_scaled.npy')
-    input_poly = Polygon(input_polygon)
-    x, y = input_poly.exterior.xy
-    #plt.plot(x, y, color='black', linewidth=2)
-    ax.plot(x,y, color='black', linewidth=2)
-    #plt.pause(0.25)  # Pause for a moment to show the plot
+    pass
 
 # Callback function to plot the solution after each generation
-def on_generation(ga_instance, ax):
+def on_generation(ga_instance, best_solutions_list, ax):
     print(ga_instance.generations_completed)
+    best_solution_generation = ga_instance.best_solution()[0]
+    best_solutions_list.append(best_solution_generation)
     
     #solution, solution_fitness, solution_idx = ga_instance.best_solution()
     #plot_solution(solution, ax, ga_instance.generations_completed)
@@ -237,13 +274,15 @@ def on_generation(ga_instance, ax):
 if __name__ == "__main__":
 
     # Define the PyGAD parameters
-    N = 10
+    N = 5
     num_generations = 50  # Number of generations
     num_parents_mating = 20  # Number of solutions to mate
     sol_per_pop = 100  # Population size
     num_genes = N * 2  # Each point has 2 coordinates (x, y)
     gene_space = generate_gene_space(N, low=-1, high=4)
     fig, ax = plt.subplots()
+
+    best_solutions = []
 
     # Create the PyGAD instance
     ga_instance = pygad.GA(num_generations=num_generations,
@@ -252,7 +291,7 @@ if __name__ == "__main__":
                         sol_per_pop=sol_per_pop,
                         num_genes=num_genes,
                         mutation_percent_genes=10,
-                        on_generation=lambda instance: on_generation(instance, ax),
+                        on_generation=lambda instance: on_generation(instance, best_solutions, ax),
                         gene_space=gene_space,
                         suppress_warnings=True)
 
@@ -274,7 +313,7 @@ if __name__ == "__main__":
 
     # Tessellate to get all polygons and areas:
 
-    polygons_A_star, polygons_B, polygons_A_star_areas, polygons_B_areas = tessellate_with_buffer(points, input_polygon, minimum_distance)
+    polygons_A_star, polygons_B, polygons_A, polygons_A_star_areas, polygons_B_areas, polygons_A_areas = tessellate_with_buffer(points, input_polygon, minimum_distance)
     polygons_A, polygons_A_areas, vor_A = get_A_regions(points, input_polygon)
 
     # Get adjacency matrix, and expanded adjacency matrix. 
@@ -292,10 +331,11 @@ if __name__ == "__main__":
 
     # Get theoretical best:
 
-    print_area = Polygon(input_polygon).area
+    polygon = create_polygon(input_polygon)
+    print_area = polygon.area
     best_makespan = -print_area/float(N)
 
     # Plot final tessellation and fitness history:
 
     plot_custom_solution(solution, polygons_A_star, polygons_B, ax)
-    plot_custom_fitness(ga_instance, best_makespan)
+    plot_custom_fitness(ga_instance, best_solutions, best_makespan)

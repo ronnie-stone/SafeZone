@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.spatial import Voronoi
 from shapely import geometry
+from create_polygon import create_polygon
 
 
 def get_A_regions(voronoi_points, input_polygon):
@@ -18,8 +19,10 @@ def get_A_regions(voronoi_points, input_polygon):
     vertices = vor.vertices
     regions = vor.regions
     regions_index = vor.point_region
+
     
-    printing_polygon = geometry.Polygon(input_polygon)
+    
+    printing_polygon = create_polygon(input_polygon)
 
     polygons = []
     polygons_areas = []

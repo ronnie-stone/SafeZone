@@ -8,9 +8,12 @@ from integer_lp import task_scheduling_ilp
 
 
 points = np.array([[0, 0], [1, 0], [0.9, 0.9], [0, 1]])
-#input_polygon = np.array([(0.25,0.25), (0.75,0.25), (0.75,0.75), (0.25,0.75), (0.25,0.25)])
-input_polygon = np.array([(0,0), (3,0), (3, 0.5), (0.5, 2.5), (3, 2.5), (3, 3), (0,3), (0,2.5), (2.5, 0.5), (0, 0.5), (0,0)])
-minimum_distance = 0.1
+# input_polygon = np.array([(0.25,0.25), (0.75,0.25), (0.75,0.75), (0.25,0.75), (0.25,0.25)])
+input_polygon = [
+        [(0, 0), (3, 0), (3, 3), (0, 3), (0, 0)],  # Outer boundary
+        [(1, 1), (1.5, 1), (1.5, 2), (1, 2), (1, 1)]  # Hole
+    ]
+minimum_distance = 0.15
 
 # Tessellate to get all polygons and areas:
 

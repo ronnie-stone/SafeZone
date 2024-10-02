@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 from scipy.spatial import voronoi_plot_2d
 from shapely import geometry
 from get_A_regions import get_A_regions
+from create_polygon import create_polygon
+from tessellate_with_buffer import tessellate_with_buffer
 
 
 def adjacency_matrix_from_regions(polygons, min_distance):
@@ -35,10 +37,15 @@ if __name__ == "__main__":
     points_1 = np.array([[0, 0], [1, 0], [1, 1], [0, 1]])
     input_polygon_1 = np.array([(0.25,0.25), (0.75,0.25), (0.75,0.75), (0.25,0.75), (0.25,0.25)])
     min_distance_1 = 0.1
+
     polygons_A, _, vor_A = get_A_regions(points_1, input_polygon_1)
     adj_matrix_1 = adjacency_matrix_from_regions(polygons_A, min_distance_1)
-
     print("Test case 1 (Square grid) adjacency matrix:\n", adj_matrix_1)
+
+    polygons_A_star, polygons_B, polygons_A, polygons_A_star_areas, polygons_B_areas, polygons_A_areas = tessellate_with_buffer(points_1, input_polygon_1, min_distance_1)
+    adj_matrix_1 = adjacency_matrix_from_regions(polygons_A, min_distance_1)
+    print("Test case 1 (Square grid) adjacency matrix:\n", adj_matrix_1)
+
 
     fig, ax = plt.subplots()
     voronoi_plot_2d(vor_A, ax=ax)
@@ -52,11 +59,14 @@ if __name__ == "__main__":
     points_2 = np.random.rand(5, 2)
     input_polygon_2 = np.array([(0.25,0.25), (0.75,0.25), (0.75,0.75), (0.25,0.75), (0.25,0.25)])
     min_distance_2 = 0.1
+
     polygons_A, _, vor_A = get_A_regions(points_2, input_polygon_2)
     adj_matrix_2 = adjacency_matrix_from_regions(polygons_A, min_distance_2)
-
     print("Test case 2 (Random points) adjacency matrix:\n", adj_matrix_2)
-    print("Voronoi Points:\n", vor_A.points[0:len(points_2)])
+
+    polygons_A_star, polygons_B, polygons_A, polygons_A_star_areas, polygons_B_areas, polygons_A_areas = tessellate_with_buffer(points_2, input_polygon_2, min_distance_2)
+    adj_matrix_2 = adjacency_matrix_from_regions(polygons_A, min_distance_2)
+    print("Test case 2 (Random points) adjacency matrix:\n", adj_matrix_2)
 
     fig, ax = plt.subplots()
     voronoi_plot_2d(vor_A, ax=ax)
@@ -70,9 +80,13 @@ if __name__ == "__main__":
     points_3 = np.array([[0, 0], [1, 0], [0.5, np.sqrt(3)/2]])
     input_polygon_3 = np.array([(0.25,0.25), (0.75,0.25), (0.75,0.75), (0.25,0.75), (0.25,0.25)])
     min_distance_3 = 0.1
+
     polygons_A, _, vor_A = get_A_regions(points_3, input_polygon_3)
     adj_matrix_3 = adjacency_matrix_from_regions(polygons_A, min_distance_3)
+    print("Test case 3 (Triangular points) adjacency matrix:\n", adj_matrix_3)
 
+    polygons_A_star, polygons_B, polygons_A, polygons_A_star_areas, polygons_B_areas, polygons_A_areas = tessellate_with_buffer(points_3, input_polygon_3, min_distance_3)
+    adj_matrix_3 = adjacency_matrix_from_regions(polygons_A, min_distance_3)
     print("Test case 3 (Triangular points) adjacency matrix:\n", adj_matrix_3)
 
     fig, ax = plt.subplots()
@@ -81,4 +95,31 @@ if __name__ == "__main__":
     ax.fill(x, y, alpha=0.5, edgecolor = "black")
     plt.xlim([-0.5,1.5])
     plt.ylim([-0.5,1.5])
+    plt.show()
+
+    # Test case 4: Square with Hole
+    points_4 =  np.array([[-1, -1], [4, -1], [4, 4], [-1, 4]])
+    input_polygon_4 = [
+    [(0,0), (3,0), (3,3), (0,3), (0,0)],
+    [(1, 1), (2, 1), (2,2), (1, 2), (1, 1)]
+    ]
+    min_distance_4 = 0.1
+
+    polygons_A, _, vor_A = get_A_regions(points_4, input_polygon_4)
+    adj_matrix_4 = adjacency_matrix_from_regions(polygons_A, min_distance_4)
+    print("Test case 4 (Square with Hole) adjacency matrix:\n", adj_matrix_4)
+
+    polygons_A_star, polygons_B, polygons_A, polygons_A_star_areas, polygons_B_areas, polygons_A_areas = tessellate_with_buffer(points_4, input_polygon_4, min_distance_4)
+    adj_matrix_4 = adjacency_matrix_from_regions(polygons_A, min_distance_4)
+    print("Test case 4 (Square with Hole) adjacency matrix:\n", adj_matrix_4)
+
+    fig, ax = plt.subplots()
+    voronoi_plot_2d(vor_A, ax=ax)
+    input_polygon_4 = create_polygon(input_polygon_4)
+    x,y = input_polygon_4.exterior.xy
+    ax.fill(x, y, alpha=0.5, edgecolor = "black")
+    x,y = input_polygon_4.interiors[0].xy
+    ax.fill(x, y, alpha=0.5, facecolor="white", edgecolor = "black")
+    plt.xlim([-1,4])
+    plt.ylim([-1,4])
     plt.show()
