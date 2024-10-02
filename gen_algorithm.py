@@ -18,7 +18,7 @@ from matplotlib import cm
 
 input_polygon = [(0,0), (3,0), (3,3), (0,3), (0,0)] # Square
 # input_polygon = [(0,0), (6,0), (6,3), (0,3), (0,0)] # Rectangle
-# input_polygon = [(0,0), (3,0), (1.5,3), (0,0)] # Triangle
+# nput_polygon = [(0,0), (3,0), (1.5,3), (0,0)] # Triangle
 # input_polygon = [(0,0), (3,0), (3, 0.5), (2.5, 0.5), (2.5, 2.5), (3, 2.5), (3,3), (0,3), (0, 2.5), (0.5, 2.5), (0.5,0.5), (0,0.5), (0,0)] # I-BEAM
 # input_polygon = [(0,0), (3,0), (3, 0.5), (0.5, 2.5), (3, 2.5), (3, 3), (0,3), (0,2.5), (2.5, 0.5), (0, 0.5), (0,0)] # Z-BEAM
 # input_polygon = np.load('bunny_cross_section_scaled.npy')
@@ -51,18 +51,22 @@ def plot_custom_fitness(ga_instance, best_solutions, theoretical_best_fitness):
     plt.ylabel("Fitness")
     plt.title("Fitness Over Generations")
     plt.legend()
+    plt.savefig("Fig2")
 
+    areas_A = []
     std_areas_A = []
     abs_diff_areas_A = []
     max_diff_areas_A = []
     mean_squared_error_areas_A = []
     sum_of_areas_A = []
 
+    areas_B = []
     std_areas_B = []
     abs_diff_areas_B = []
     max_diff_areas_B = []
     mean_squared_error_areas_B = []
     sum_of_areas_B = []
+
 
     for i in range(len(best_solutions)):
 
@@ -73,6 +77,9 @@ def plot_custom_fitness(ga_instance, best_solutions, theoretical_best_fitness):
             polygons_A_star, polygons_B, polygons_A, polygons_A_star_areas, polygons_B_areas, polygons_A_areas = tessellate_with_buffer(points, input_polygon, minimum_distance)
             array_A = np.array(polygons_A_star_areas)
             array_B = np.array(polygons_B_areas)
+            areas_A.append(array_A)
+            areas_B.append(array_B)
+
             std_areas_A.append(np.std(array_A))
             abs_diff_areas_A.append(np.sum(np.abs(np.diff(array_A))))
             mean_squared_error_areas_A.append(np.mean(np.diff(array_A) ** 2))
@@ -96,6 +103,7 @@ def plot_custom_fitness(ga_instance, best_solutions, theoretical_best_fitness):
     plt.xlabel("Generation")
     plt.title("Difference Metrics of A-Areas over Generations")
     plt.legend()
+    plt.savefig("Fig3")
 
     plt.figure()
     plt.plot(np.arange(1, len(best_solutions)+1), std_areas_B, label="Standard Deviation")
@@ -105,18 +113,40 @@ def plot_custom_fitness(ga_instance, best_solutions, theoretical_best_fitness):
     plt.xlabel("Generation")
     plt.title("Difference Metrics of B-Areas over Generations")
     plt.legend()
+    plt.savefig("Fig4")
 
     plt.figure()
     plt.plot(np.arange(1, len(best_solutions)+1), sum_of_areas_A, label="Sum of A")
     plt.xlabel("Generation")
     plt.title("Sum of Areas Generations")
     plt.legend()
+    plt.savefig("Fig5")
 
     plt.figure()
     plt.plot(np.arange(1, len(best_solutions)+1), sum_of_areas_B, label="Sum of B")
     plt.xlabel("Generation")
     plt.title("Sum of Areas Generations")
     plt.legend()
+    plt.savefig("Fig6")
+
+    plt.figure()
+    for i in range(len(array_A)):
+        ith_area = [arr[i] for arr in areas_A]
+        plt.plot(np.arange(1, len(best_solutions)+1), ith_area, label="Area " + str(i))
+    plt.xlabel("Generation")
+    plt.title("Individual A-Areas")
+    plt.legend()
+    plt.savefig("Fig7")
+
+    plt.figure()
+    for i in range(len(array_B)):
+        ith_area = [arr[i] for arr in areas_B]
+        plt.plot(np.arange(1, len(best_solutions)+1), ith_area, label="Area " + str(i))
+    plt.xlabel("Generation")
+    plt.title("Individual B-Areas")
+    plt.legend()
+    plt.savefig("Fig8")
+
 
     # Show the plot
     plt.show()
@@ -140,25 +170,30 @@ def plot_custom_solution(solution, polygons_A_star, polygons_B, ax):
             for poly in MainPolygon.geoms:
                 x, y = poly.exterior.xy
                 # Plot the filled polygon with alpha for the fill
-                ax.fill(x, y, facecolor=color, alpha=0.1, edgecolor='none', label=str(i))
+                ax.fill(x, y, facecolor=color, alpha=0.1, edgecolor='none')
                 # Plot the outline of the same polygon with no alpha (fully opaque)
                 ax.plot(x, y, color='black', linewidth=1)
         else:
             x, y = MainPolygon.exterior.xy
-            ax.fill(x, y, facecolor=color, alpha=0.1, edgecolor='none', label=str(i))
+            ax.fill(x, y, facecolor=color, alpha=0.1, edgecolor='none')
             ax.plot(x, y, color='black', linewidth=1)
 
     # Plot polygons_B in the same way
     for i, BoundaryPolygon in enumerate(polygons_B):
         color = colors_B[i]
         if isinstance(BoundaryPolygon, MultiPolygon):
+            label = False
             for poly in BoundaryPolygon.geoms:
                 x, y = poly.exterior.xy
-                ax.fill(x, y, facecolor=color, alpha=0.4, edgecolor='none')
+                if not label:
+                    ax.fill(x, y, facecolor=color, alpha=0.4, edgecolor='none', label=str(i))
+                    label = True
+                else:
+                    ax.fill(x, y, facecolor=color, alpha=0.4, edgecolor='none')
                 ax.plot(x, y, color='black', linewidth=1)
         else:
             x, y = BoundaryPolygon.exterior.xy
-            ax.fill(x, y, facecolor=color, alpha=0.4, edgecolor='none')
+            ax.fill(x, y, facecolor=color, alpha=0.4, edgecolor='none', label=str(i))
             ax.plot(x, y, color='black', linewidth=1)
 
     voronoi_points = [[solution[i], solution[i+1]] for i in range(0, len(solution), 2)]
@@ -175,6 +210,7 @@ def plot_custom_solution(solution, polygons_A_star, polygons_B, ax):
     plt.xlim([-1,4])
     plt.ylim([-1,4])
     plt.legend()
+    plt.savefig("Fig1")
 
 
 def points_in_polygon(polygon_points, points_to_check):
@@ -274,10 +310,10 @@ def on_generation(ga_instance, best_solutions_list, ax):
 if __name__ == "__main__":
 
     # Define the PyGAD parameters
-    N = 5
+    N = 4
     num_generations = 50  # Number of generations
-    num_parents_mating = 20  # Number of solutions to mate
-    sol_per_pop = 100  # Population size
+    num_parents_mating = 100  # Number of solutions to mate
+    sol_per_pop = 1000  # Population size
     num_genes = N * 2  # Each point has 2 coordinates (x, y)
     gene_space = generate_gene_space(N, low=-1, high=4)
     fig, ax = plt.subplots()
