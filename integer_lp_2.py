@@ -1,79 +1,63 @@
 import numpy as np
 from ortools.linear_solver import pywraplp
-from generate_task_list import generate_task_lists
-import matplotlib.pyplot as plt
 
 
-def task_scheduling_ilp(tasks, task_durations, robots, connected_tasks, verbose=False, num_time_slots=1000):
+def task_scheduling_ilp_2(tasks, task_durations, printers, adjacency_list, verbose=False):
     # Create the solver instance
-    solver = pywraplp.Solver.CreateSolver('CBC')
-    #solver.SetSolverSpecificParametersAsString("numerics/feastol = 1e-5")
-
+    solver = pywraplp.Solver.CreateSolver('GLOP')
     if not solver:
         return None
-    
-    try:
-    
-        num_tasks = len(tasks)
-        M = num_time_slots  # Large constant to handle non-overlap constraints
 
-        # Decision variables
-        s = {}
-        z = {}
+    num_tasks = len(tasks)
 
+    # Decision variables: start times for each task
+    s = {}
+    for i in range(num_tasks):
+        s[i] = solver.NumVar(0, solver.infinity(), f'start_time_{i}')
+
+    # Constraints: No overlapping tasks on the same printer
+    printer_task_map = {}
+    for i, printer in enumerate(printers):
+        if printer not in printer_task_map:
+            printer_task_map[printer] = []
+        printer_task_map[printer].append(i)
+
+    for printer, task_indices in printer_task_map.items():
+        if len(task_indices) == 2:
+            i, j = task_indices
+            # Ensure that the two tasks assigned to the same printer do not overlap
+            solver.Add(s[i] + task_durations[i] <= s[j])
+            solver.Add(s[j] + task_durations[j] <= s[i])
+
+    # Constraints: No adjacent tasks on different printers at the same time
+    for i, j in adjacency_list:
+        # Ensure that tasks on different printers that are adjacent do not overlap
+        solver.Add(s[i] + task_durations[i] <= s[j])
+        solver.Add(s[j] + task_durations[j] <= s[i])
+
+    # Objective: Minimize the latest end time (makespan)
+    makespan = solver.NumVar(0, solver.infinity(), 'makespan')
+    for i in range(num_tasks):
+        solver.Add(s[i] + task_durations[i] <= makespan)
+
+    solver.Minimize(makespan)
+
+    # Solve the model
+    status = solver.Solve()
+    if status != pywraplp.Solver.OPTIMAL:
+        print("No optimal solution found")
+        return None
+
+    if verbose:
+        print(f'Optimal makespan: {makespan.solution_value():.3f}')
+        print('Detailed Schedule:')
         for i in range(num_tasks):
-            # Allow start times to be any positive real number
-            s[i] = solver.NumVar(0, solver.infinity(), f'start_time_{i}')
-            for j in range(i + 1, num_tasks):
-                # z is still binary as it controls task sequencing
-                z[i, j] = solver.BoolVar(f'z_{i}_{j}')
-        
-        # Variable for makespan, also a continuous variable
-        T = solver.NumVar(0, solver.infinity(), 'makespan')
+            start_time = s[i].solution_value()
+            end_time = start_time + task_durations[i]
+            print(f'Task {i} assigned to Printer {printers[i]} starts at {start_time:.3f} and ends at {end_time:.3f}')
 
-        # Constraints: No overlapping tasks on the same robot
-        for robot in set(robots):
-            tasks_on_robot = [i for i in range(num_tasks) if robots[i] == robot]
-            for i in range(len(tasks_on_robot)):
-                for j in range(i + 1, len(tasks_on_robot)):
-                    task_i, task_j = tasks_on_robot[i], tasks_on_robot[j]
-                    solver.Add(s[task_i] + task_durations[task_i] <= s[task_j] + M * (1 - z[task_i, task_j]))
-                    solver.Add(s[task_j] + task_durations[task_j] <= s[task_i] + M * z[task_i, task_j])
+    return makespan.solution_value()
 
-        # Constraints: No overlapping connected tasks
-        for i, j in connected_tasks:
-            solver.Add(s[i] + task_durations[i] <= s[j] + M * (1 - z[i, j]))
-            solver.Add(s[j] + task_durations[j] <= s[i] + M * z[i, j])
-
-        # Constraints: All tasks must complete by the makespan T
-        for i in range(num_tasks):
-            solver.Add(s[i] + task_durations[i] <= T)
-
-        # Objective: Minimize the makespan
-        solver.Minimize(T)
-
-        # Solve the model
-        status = solver.Solve()
-        if status != pywraplp.Solver.OPTIMAL:
-            print("No optimal solution found")
-
-        if verbose:
-            if status == pywraplp.Solver.OPTIMAL:
-                print(f'Optimal makespan: {T.solution_value():.3f}')
-                print(f'Detailed Schedule:')
-                for i in range(num_tasks):
-                    start_time = s[i].solution_value()
-                    end_time = start_time + task_durations[i]
-                    print(f'Task {i} assigned to Robot {robots[i]} starts at {start_time:.3f}, lasts for {task_durations[i]:.3f} units, and ends at {end_time:.3f}.')
-            else:
-                print('No optimal solution found.')
-            print("")
-
-        return T.solution_value()
-    
-    except:
-
-        return 100
 
 if __name__ == "__main__":
 
@@ -86,8 +70,8 @@ if __name__ == "__main__":
     connected_tasks_2 = [(0, 1), (0, 3), (1, 2), (1, 3), (2, 3)]  # Tasks that share physical boundaries and cannot be done simultaneously
     connected_tasks_3 = [(0, 1), (0, 3), (1, 2), (2, 3)]  # Tasks that share physical boundaries and cannot be done simultaneously
 
-    makespan_1 = task_scheduling_ilp(tasks, task_durations, robots, connected_tasks_2, verbose=True)
-    makespan_2 = task_scheduling_ilp(tasks, task_durations, robots, connected_tasks_3)
+    makespan_1 = task_scheduling_ilp_2(tasks, task_durations, robots, connected_tasks_2, verbose=True)
+    makespan_2 = task_scheduling_ilp_2(tasks, task_durations, robots, connected_tasks_3)
     print(makespan_2-makespan_1)
 
     # Test graph coloring hypothesis.

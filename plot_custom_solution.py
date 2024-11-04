@@ -2,9 +2,18 @@ import matplotlib.pyplot as plt
 import numpy as np 
 from shapely import MultiPolygon
 from scipy.spatial import Voronoi, voronoi_plot_2d
+import os
 
 
-def plot_custom_solution(solution, polygons_A_star, polygons_B, minimum_robot_distance, reachability_radius, ax):
+def plot_custom_solution(solution, polygons_A_star, polygons_B, minimum_robot_distance, reachability_radius, ax, foldername=None):
+
+    # Use the current directory if foldername is None
+    if foldername is None:
+        foldername = os.getcwd()  # Get the current working directory
+
+    # Ensure the folder exists, if not, create it
+    if not os.path.exists(foldername):
+        os.makedirs(foldername)
 
     # Plotting:
     cmap = plt.get_cmap('hsv')
@@ -59,17 +68,18 @@ def plot_custom_solution(solution, polygons_A_star, polygons_B, minimum_robot_di
     ax.scatter(np.array(voronoi_points)[:, 0],  np.array(voronoi_points)[:, 1], s=20, color='red', edgecolor='black')
     ax.set_aspect('equal')
     i = 0
-    for point in points[0:4]:
+    for point in voronoi_points:
         color = colors_A_star[i]
-        circle = plt.Circle(point, minimum_robot_distance, color=color, alpha=0.1, zorder=2)
+        circle = plt.Circle(point, minimum_robot_distance, facecolor=color, edgecolor='black', alpha=0.2, zorder=3)
         ax.add_patch(circle)
-        circle = plt.Circle(point, reachability_radius, facecolor='none', edgecolor=color, zorder=1)
+        circle = plt.Circle(point, reachability_radius, facecolor='none', edgecolor=color, linestyle='--', zorder=2)
         ax.add_patch(circle)
         i += 1
     plt.xlim([-1,4])
     plt.ylim([-1,4])
     plt.legend()
-    plt.savefig("Fig1")
+    filepath1 = os.path.join(foldername, "Fig1.pdf")
+    plt.savefig(filepath1, bbox_inches='tight', format='pdf')
 
 if __name__ == "__main__":
     pass

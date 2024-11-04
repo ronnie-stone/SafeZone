@@ -8,7 +8,7 @@ from create_polygon import create_polygon
 from plot_custom_solution import plot_custom_solution
 
 
-def tessellate_with_buffer(robot_positions, printing_part, buffer_size):
+def tessellate_with_disjoint_buffer(robot_positions, printing_part, buffer_size):
 
     minx = min(robot_positions[:,0])
     maxx = max(robot_positions[:,0])

@@ -4,11 +4,14 @@ import matplotlib.pyplot as plt
 from scipy.spatial import Voronoi, voronoi_plot_2d
 from shapely.geometry import Point, Polygon, MultiPolygon
 import time 
+import os 
+import csv
 
 from expand_adjacency_matrix import expand_adjacency_matrix
 from tessellate_with_buffer import tessellate_with_buffer
 from adjacency_matrix_to_connected_tasks import adjacency_matrix_to_connected_tasks
 from adjacency_matrix_from_regions import adjacency_matrix_from_regions
+from chromatic_number import chromatic_number
 
 from plot_custom_fitness import plot_custom_fitness
 from plot_custom_solution import plot_custom_solution
@@ -33,9 +36,18 @@ input_polygon = [(0,0), (3,0), (3,3), (0,3), (0,0)] # Square
 #     [(2, 1), (2.5, 1), (2.5, 2), (2, 2), (2, 1)]
 #     ]
 
+# Circle:
+# radius = 1
+# center = np.array([1.5, 1.5])
+# num_points = 100
+# angles = np.linspace(0, 2 * np.pi, num_points)
+# x_points = radius * np.cos(angles) + center[0]
+# y_points = radius * np.sin(angles) + center[1]
+# input_polygon = np.column_stack((x_points, y_points))
+
 minimum_ridge_length = 0.2
 minimum_robot_distance = 0.5
-reachability_radius = 10
+reachability_radius = 2
 
 
 def generate_gene_space(N, low=-1, high=4):
@@ -140,9 +152,20 @@ def fitness_func(ga, solution, solution_idx):
     robots = np.tile(np.arange(1, len(points)+1), 2)
     connected_tasks = adjacency_matrix_to_connected_tasks(expanded_adjacency_matrix)
 
+    # Alternatively, create parameters for heuristic driven, solution:
+    # adjacency_matrix = adjacency_matrix_from_regions(polygons_A, minimum_ridge_length)
+    # task_list = np.arange(0, len(points))
+    # task_duration = np.array(polygons_B_areas)
+    # robots = np.tile(np.arange(1, len(points)+1), 1)
+    # connected_tasks = adjacency_matrix_to_connected_tasks(adjacency_matrix)
+
     # Find optimal schedule:
     try:
         makespan = task_scheduling_ilp(task_list, task_duration, robots, connected_tasks)
+
+        # If using heuristic-driven solution:
+
+        # makespan += np.max(polygons_A_star_areas)
     except:
         print("Error in graph scheduling")
         return -10
@@ -159,7 +182,7 @@ if __name__ == "__main__":
 
     # Define the PyGAD parameters
     N = 4
-    num_generations = 50  # Number of generations
+    num_generations = 19  # Number of generations
     num_parents_mating = 20  # Number of solutions to mate
     sol_per_pop = 100  # Population size
     num_genes = N * 2  # Each point has 2 coordinates (x, y)
@@ -197,20 +220,37 @@ if __name__ == "__main__":
     # Tessellate to get all polygons and areas:
 
     polygons_A_star, polygons_B, polygons_A, polygons_A_star_areas, polygons_B_areas, polygons_A_areas = tessellate_with_buffer(points, input_polygon, minimum_ridge_length)
-    polygons_A, polygons_A_areas, vor_A = get_A_regions(points, input_polygon)
 
     # Get adjacency matrix, and expanded adjacency matrix. 
 
-    adjacency_matrix = adjacency_matrix_from_regions(polygons_A, minimum_ridge_length)
-    expanded_adjacency_matrix = expand_adjacency_matrix(adjacency_matrix)
+    heuristic = False
+    if heuristic == True:
+        adjacency_matrix = adjacency_matrix_from_regions(polygons_A, minimum_ridge_length)
+        task_list = np.arange(0, len(points))
+        task_duration = np.array(polygons_B_areas)
+        robots = np.tile(np.arange(1, len(points)+1), 1)
+        connected_tasks = adjacency_matrix_to_connected_tasks(adjacency_matrix)
+        makespan = task_scheduling_ilp(task_list, task_duration, robots, connected_tasks, verbose=True) + np.max(polygons_A_star_areas)
 
-    # Create parameters for mixed-integer solver:
-
-    task_list = np.arange(0, 2*len(points))
-    task_duration = np.array(polygons_A_star_areas + polygons_B_areas)
-    robots = np.tile(np.arange(1, len(points)+1), 2)
-    connected_tasks = adjacency_matrix_to_connected_tasks(expanded_adjacency_matrix)
-    makespan = task_scheduling_ilp(task_list, task_duration, robots, connected_tasks, verbose=True)
+    else:
+        adjacency_matrix = adjacency_matrix_from_regions(polygons_A, minimum_ridge_length)
+        expanded_adjacency_matrix = expand_adjacency_matrix(adjacency_matrix)
+        # Create parameters for mixed-integer solver:
+        task_list = np.arange(0, 2*len(points))
+        task_duration = np.array(polygons_A_star_areas + polygons_B_areas)
+        robots = np.tile(np.arange(1, len(points)+1), 2)
+        connected_tasks = adjacency_matrix_to_connected_tasks(expanded_adjacency_matrix)
+        makespan = task_scheduling_ilp(task_list, task_duration, robots, connected_tasks, verbose=True)
+    
+    print("Adjacency Matrix of Final Solution:") 
+    print(adjacency_matrix)
+    print("Expanded Adjacency Matrix of Final Solution:") 
+    print(expanded_adjacency_matrix)
+    print("Chromatic Number of Final Solution:")
+    chi = chromatic_number(adjacency_matrix)
+    print(chi)
+    print("Connected Tasks of Final Solution:")
+    print(connected_tasks)
 
     # Get theoretical best:
 
@@ -220,6 +260,19 @@ if __name__ == "__main__":
 
     # Plot final tessellation and fitness history:
 
-    plot_custom_solution(solution, polygons_A_star, polygons_B, minimum_robot_distance, reachability_radius, ax)
-    plot_custom_fitness(ga_instance, best_solutions, best_makespan, minimum_ridge_length, input_polygon)
-    plt.show()
+    foldername = "square4"
+    results = np.array([chi, solution_fitness, best_makespan, solution])
+
+    if foldername is None:
+        foldername = os.getcwd()  # Get the current working directory
+
+    # Ensure the folder exists, if not, create it
+    if not os.path.exists(foldername):
+        os.makedirs(foldername)
+
+    filepath = os.path.join(foldername, "solution_parameters")
+    np.save(filepath, results)
+        
+    plot_custom_solution(solution, polygons_A_star, polygons_B, minimum_robot_distance, reachability_radius, ax, foldername=foldername)
+    plot_custom_fitness(ga_instance, best_solutions, best_makespan, minimum_ridge_length, input_polygon, foldername=foldername)
+    #plt.show()
