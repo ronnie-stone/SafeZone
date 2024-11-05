@@ -65,13 +65,12 @@ def plot_custom_fitness(ga_instance, best_solutions, theoretical_best_fitness, m
 
         try:
             polygons_A_star, polygons_B, polygons_A, polygons_A_star_areas, polygons_B_areas, polygons_A_areas = tessellate_with_buffer(points, input_polygon, minimum_distance)
-            # array_A = np.array(polygons_A_star_areas)
             array_A = np.array(polygons_A_areas)/polygon_area
             array_B = np.array(polygons_B_areas)/polygon_area
             array_A_star = np.array(polygons_A_star_areas)/polygon_area
-            areas_A.append(array_A)/polygon_area
-            areas_B.append(array_B)/polygon_area
-            areas_A_star.append(array_A_star)/polygon_area
+            areas_A.append(array_A)
+            areas_B.append(array_B)
+            areas_A_star.append(array_A_star)
 
             std_areas_A.append(np.std(array_A))
             abs_diff_areas_A.append(np.sum(np.abs(np.diff(array_A))))
@@ -92,6 +91,8 @@ def plot_custom_fitness(ga_instance, best_solutions, theoretical_best_fitness, m
             sum_of_areas_A_star.append(np.sum(array_A_star))
 
         except:
+            print(polygon_area)
+            print(points, input_polygon, minimum_distance)
             print("Error in tessellation")
 
     plt.figure()
@@ -149,7 +150,7 @@ def plot_custom_fitness(ga_instance, best_solutions, theoretical_best_fitness, m
     plt.xlabel("Generation")
     plt.title("Individual B-Areas")
     plt.legend()
-    filepath9 = os.path.join(foldername, "Fig9.pdf")
+    filepath9 = os.path.join(foldername, "Fig8.pdf")
     plt.savefig(filepath9, bbox_inches='tight', format='pdf')
 
     plt.figure()
@@ -159,7 +160,7 @@ def plot_custom_fitness(ga_instance, best_solutions, theoretical_best_fitness, m
     plt.xlabel("Generation")
     plt.title("Individual A*-Areas")
     plt.legend()
-    filepath10 = os.path.join(foldername, "Fig10.pdf")
+    filepath10 = os.path.join(foldername, "Fig9.pdf")
     plt.savefig(filepath10, bbox_inches='tight', format='pdf')
 
 if __name__ == "__main__":

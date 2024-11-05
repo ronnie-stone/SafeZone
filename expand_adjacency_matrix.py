@@ -28,4 +28,7 @@ def expand_adjacency_matrix(adjacency_matrix):
     return new_matrix
 
 if __name__ == "__main__":
-    pass
+
+    adj_m = np.array([[0, 1, 1, 1], [1, 0, 0, 1], [1, 0, 0, 0], [1, 1, 0, 0]])
+    expanded_adj_m = expand_adjacency_matrix(adj_m)
+    print(expanded_adj_m)

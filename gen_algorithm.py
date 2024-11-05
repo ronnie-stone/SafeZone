@@ -23,12 +23,12 @@ from matplotlib import cm
 
 # General Parameters
 
-input_polygon = [(0,0), (3,0), (3,3), (0,3), (0,0)] # Square
+# input_polygon = [(0,0), (3,0), (3,3), (0,3), (0,0)] # Square
 # input_polygon = [(0,0), (6,0), (6,3), (0,3), (0,0)] # Rectangle
-# nput_polygon = [(0,0), (3,0), (1.5,3), (0,0)] # Triangle
+# input_polygon = [(0,0), (3,0), (1.5,3), (0,0)] # Triangle
 # input_polygon = [(0,0), (3,0), (3, 0.5), (2.5, 0.5), (2.5, 2.5), (3, 2.5), (3,3), (0,3), (0, 2.5), (0.5, 2.5), (0.5,0.5), (0,0.5), (0,0)] # I-BEAM
 # input_polygon = [(0,0), (3,0), (3, 0.5), (0.5, 2.5), (3, 2.5), (3, 3), (0,3), (0,2.5), (2.5, 0.5), (0, 0.5), (0,0)] # Z-BEAM
-# input_polygon = np.load('bunny_cross_section_scaled.npy')
+input_polygon = np.load('bunny_cross_section_scaled.npy')
 
 # input_polygon = [
 #     [(0,0), (3,0), (3,3), (0,3), (0,0)],
@@ -46,7 +46,7 @@ input_polygon = [(0,0), (3,0), (3,3), (0,3), (0,0)] # Square
 # input_polygon = np.column_stack((x_points, y_points))
 
 minimum_ridge_length = 0.2
-minimum_robot_distance = 0.5
+minimum_robot_distance = 0.25
 reachability_radius = 2
 
 
@@ -86,12 +86,13 @@ def points_too_close(points, min_distance):
     bool: True if any points are closer than the minimum distance, False otherwise.
     """
     num_points = points.shape[0]
+    #print(min_distance)
     
     # Iterate over all unique pairs of points
     for i in range(num_points):
         for j in range(i + 1, num_points):
             distance = np.linalg.norm(points[i] - points[j])
-            if distance <= min_distance:
+            if distance <= 2*min_distance:
                 return True
     return False
 
@@ -181,8 +182,8 @@ def on_generation(ga_instance, best_solutions_list, ax):
 if __name__ == "__main__":
 
     # Define the PyGAD parameters
-    N = 4
-    num_generations = 19  # Number of generations
+    N = 7
+    num_generations = 50  # Number of generations
     num_parents_mating = 20  # Number of solutions to mate
     sol_per_pop = 100  # Population size
     num_genes = N * 2  # Each point has 2 coordinates (x, y)
@@ -260,8 +261,8 @@ if __name__ == "__main__":
 
     # Plot final tessellation and fitness history:
 
-    foldername = "square4"
-    results = np.array([chi, solution_fitness, best_makespan, solution])
+    foldername = "bunny" + str(N)
+    results = [[chi], [solution_fitness],[best_makespan], solution, ga_instance.best_solutions_fitness]
 
     if foldername is None:
         foldername = os.getcwd()  # Get the current working directory
@@ -270,8 +271,11 @@ if __name__ == "__main__":
     if not os.path.exists(foldername):
         os.makedirs(foldername)
 
-    filepath = os.path.join(foldername, "solution_parameters")
-    np.save(filepath, results)
+    filepath = os.path.join(foldername, "solution_parameters.txt")
+
+    with open(filepath, 'w') as file:
+        for item in results:
+            file.write(f"{repr(item)}\n") 
         
     plot_custom_solution(solution, polygons_A_star, polygons_B, minimum_robot_distance, reachability_radius, ax, foldername=foldername)
     plot_custom_fitness(ga_instance, best_solutions, best_makespan, minimum_ridge_length, input_polygon, foldername=foldername)
